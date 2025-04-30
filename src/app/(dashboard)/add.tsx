@@ -17,7 +17,10 @@ import { useRouter } from 'expo-router';
 export default function Add() {
   const [title, setTitle] = useState('');
   const [image, setImage] = useState<string | null>(null);
+  const [category, setCategory] = useState('');
   const router = useRouter();
+
+  const categories = ['Sanat', 'Doğa', 'Yemek', 'Dekorasyon','Moda'];
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -31,8 +34,8 @@ export default function Add() {
   };
 
   const handleSubmit = () => {
-    if (!title || !image) return alert('Başlık ve görsel gerekli!');
-    console.log('Pin yüklendi:', { title, image });
+    if (!title || !image || !category) return alert('Başlık, görsel ve kategori gerekli!');
+    console.log('Pin yüklendi:', { title, image, category });
   };
 
   return (
@@ -48,6 +51,7 @@ export default function Add() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView className="px-4 py-4">
+          {/* Görsel */}
           <TouchableOpacity
             onPress={pickImage}
             className="bg-gray-100 rounded-xl h-48 items-center justify-center mb-4"
@@ -63,6 +67,7 @@ export default function Add() {
             )}
           </TouchableOpacity>
 
+          {/* Başlık */}
           <TextInput
             placeholder="Başlık"
             value={title}
@@ -71,6 +76,27 @@ export default function Add() {
             placeholderTextColor="#A1A1AA"
           />
 
+          {/* Kategori Seçimi */}
+          <View className="mb-4">
+            <Text className="text-gray-700 font-medium mb-2">Kategori Seç:</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {categories.map((cat, i) => (
+                <TouchableOpacity
+                  key={i}
+                  onPress={() => setCategory(cat)}
+                  className={`px-4 py-2 mr-2 rounded-full border ${
+                    category === cat ? 'bg-pink-600 border-pink-600' : 'bg-white border-gray-300'
+                  }`}
+                >
+                  <Text className={`${category === cat ? 'text-white' : 'text-gray-700'}`}>
+                    {cat}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+
+          {/* Yükle Butonu */}
           <TouchableOpacity
             onPress={handleSubmit}
             className="bg-pink-600 py-4 rounded-xl"
@@ -81,23 +107,23 @@ export default function Add() {
       </KeyboardAvoidingView>
 
       {/* Footer */}
-          <View className="absolute bottom-0 left-0 right-0 flex-row justify-around items-center bg-white border-t border-gray-200 py-3">
-              <TouchableOpacity onPress={() => router.push('/(dashboard)')}>
-                <Ionicons name="home-outline" size={26} color="#6b7280" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => router.replace('/(dashboard)/search')}>
-                <Ionicons name="search-outline" size={26} color="#6b7280" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => router.replace('/(dashboard)/add')}>
-                <Ionicons name="add-circle-outline" size={32} color="#6b7280" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => router.replace('/(dashboard)/saved')}>
-                <Ionicons name="bookmark-outline" size={26} color="#6b7280" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => router.replace('/(dashboard)/profile')}>
-                <Ionicons name="person-outline" size={26} color="#e11d48" />
-              </TouchableOpacity>
-            </View>
+      <View className="absolute bottom-0 left-0 right-0 flex-row justify-around items-center bg-white border-t border-gray-200 py-3">
+        <TouchableOpacity onPress={() => router.push('/(dashboard)')}>
+          <Ionicons name="home-outline" size={26} color="#6b7280" />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.replace('/(dashboard)/search')}>
+          <Ionicons name="search-outline" size={26} color="#6b7280" />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.replace('/(dashboard)/add')}>
+          <Ionicons name="add-circle-outline" size={32} color="#6b7280" />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.replace('/(dashboard)/saved')}>
+          <Ionicons name="bookmark-outline" size={26} color="#6b7280" />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.replace('/(dashboard)/profile')}>
+          <Ionicons name="person-outline" size={26} color="#e11d48" />
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
