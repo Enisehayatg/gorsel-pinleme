@@ -23,19 +23,24 @@ export default function Register() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const { register } = useAuth(); // register fonksiyonu useAuth içinde olmalı
+  const { register } = useAuth();
 
   const handleRegister = async () => {
+    if (!email || !password || !name) {
+      Alert.alert('Eksik Bilgi', 'Tüm alanları doldurun.');
+      return;
+    }
+
     try {
       setLoading(true);
       const res = await register({ name, email, password });
 
-      if (res.status && res.data?.token) {
+      if (res.data?.status && res.data?.token) {
         await AsyncStorage.setItem('accessToken', res.data.token);
         await AsyncStorage.setItem('accessUser', JSON.stringify(res.data.user));
         router.replace('/(dashboard)');
       } else {
-        Alert.alert('Kayıt Başarısız', res.message || 'Bilgileri kontrol et');
+        Alert.alert('Kayıt Başarısız', res.data?.message || 'Bilgileri kontrol edin.');
       }
     } catch (error) {
       console.error('Register error:', error);

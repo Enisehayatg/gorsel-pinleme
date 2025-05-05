@@ -66,7 +66,7 @@ export default function Saved() {
     <SafeAreaView className="flex-1 mb-5 bg-white">
       {/* Header */}
       <View className="px-4 py-4 border-b border-gray-200">
-        <Text className="text-2xl font-bold text-pink-600">📌 Kaydedilenler</Text>
+        <Text className="text-2xl font-bold text-pink-600">📌 Beğenilenler</Text>
       </View>
 
       {/* İçerik */}
