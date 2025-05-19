@@ -66,7 +66,7 @@ export default function Search() {
   const recommendedPins = pins.filter((pin) => ['Moda', 'Sanat'].includes(pin.category));
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 mb-5 bg-white">
       {/* Header */}
       <View className="px-4 pt-5 pb-2 border-b border-gray-200 bg-white">
         <Text className="text-3xl font-bold text-pink-600">Keşfet 🔍</Text>
@@ -217,8 +217,8 @@ export default function Search() {
         <TouchableOpacity onPress={() => router.replace('/(dashboard)/saved')}>
           <Ionicons name="bookmark-outline" size={26} color="#6b7280" />
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => router.replace('/(dashboard)/profile')}>
-          <Ionicons name="person-outline" size={26} color="#6b7280" />
+        <TouchableOpacity onPress={() => router.push('/todo')}>
+          <Ionicons name="checkmark-circle-outline" size={26} color="#6b7280" />
         </TouchableOpacity>
       </View>
     </SafeAreaView>

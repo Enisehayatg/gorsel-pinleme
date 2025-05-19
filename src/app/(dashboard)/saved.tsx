@@ -8,34 +8,52 @@ import {
   SafeAreaView,
   ActivityIndicator,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { getSavedPins, removePin, SavedPin } from '@/utils/savedStorage';
 
 const screenWidth = Dimensions.get('window').width;
 const CARD_WIDTH = screenWidth / 2 - 20;
 
-const savedPins = [
-  { id: '101', title: 'Modern Tasarım', image: 'https://picsum.photos/300/410' },
-  { id: '102', title: 'Yaratıcı Fikir', image: 'https://picsum.photos/300/450' },
-  { id: '103', title: 'Soft Tonlar', image: 'https://picsum.photos/300/400' },
-];
-
 export default function Saved() {
   const [loading, setLoading] = useState(true);
-  const [pins, setPins] = useState([]);
+  const [pins, setPins] = useState<SavedPin[]>([]);
   const router = useRouter();
 
+  // Load saved pins when screen is focused
   useEffect(() => {
-    setTimeout(() => {
-      setPins(savedPins);
-      setLoading(false);
-    }, 800);
+    loadSavedPins();
   }, []);
 
-  const renderItem = ({ item, index }: any) => (
-    <TouchableOpacity
-      onPress={() => router.push(`/pin/${item.id}`)}
+  const loadSavedPins = async () => {
+    try {
+      setLoading(true);
+      const savedPins = await getSavedPins();
+      setPins(savedPins);
+    } catch (e) {
+      Alert.alert('Hata', 'Kaydedilen görseller yüklenirken bir hata oluştu.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRemovePin = async (id: string) => {
+    try {
+      const success = await removePin(id);
+      if (success) {
+        // Yeniden yükle
+        loadSavedPins();
+        Alert.alert('Başarılı', 'Görsel kaydedilenlerden kaldırıldı.');
+      }
+    } catch (e) {
+      Alert.alert('Hata', 'Görsel kaldırılırken bir hata oluştu.');
+    }
+  };
+
+  const renderItem = ({ item, index }: { item: SavedPin, index: number }) => (
+    <View
       style={{
         width: CARD_WIDTH,
         marginBottom: 16,
@@ -46,27 +64,37 @@ export default function Saved() {
         elevation: 2,
       }}
     >
-      <Image
-        source={{ uri: item.image }}
-        style={{
-          width: '100%',
-          height: 200 + (index % 2) * 30,
-          borderTopLeftRadius: 20,
-          borderTopRightRadius: 20,
-        }}
-        resizeMode="cover"
-      />
+      <TouchableOpacity onPress={() => router.push(`/pin/${item.id}`)}>
+        <Image
+          source={{ uri: item.image }}
+          style={{
+            width: '100%',
+            height: 200 + (index % 2) * 30,
+            borderTopLeftRadius: 20,
+            borderTopRightRadius: 20,
+          }}
+          resizeMode="cover"
+        />
+      </TouchableOpacity>
       <View style={{ padding: 10 }}>
-        <Text style={{ fontWeight: '600', color: '#333' }}>{item.title}</Text>
+        <View className="flex-row justify-between items-center">
+          <Text style={{ fontWeight: '600', color: '#333', flex: 1 }}>{item.title}</Text>
+          <TouchableOpacity 
+            className="p-2" 
+            onPress={() => handleRemovePin(item.id)}
+          >
+            <Ionicons name="bookmark" size={18} color="#e11d48" />
+          </TouchableOpacity>
+        </View>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 
   return (
     <SafeAreaView className="flex-1 mb-5 bg-white">
       {/* Header */}
       <View className="px-4 py-4 border-b border-gray-200">
-        <Text className="text-2xl font-bold text-pink-600">📌 Beğenilenler</Text>
+        <Text className="text-2xl font-bold text-pink-600">📌 Kaydedilenler</Text>
       </View>
 
       {/* İçerik */}
@@ -76,14 +104,24 @@ export default function Saved() {
             <ActivityIndicator size="large" color="#e11d48" />
           </View>
         ) : (
-          <FlatList
-            data={pins}
-            renderItem={renderItem}
-            keyExtractor={(item) => item.id}
-            numColumns={2}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 80 }}
-          />
+          <>
+            {pins.length > 0 ? (
+              <FlatList
+                data={pins}
+                renderItem={renderItem}
+                keyExtractor={(item) => item.id}
+                numColumns={2}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 80 }}
+              />
+            ) : (
+              <View className="flex-1 justify-center items-center">
+                <Ionicons name="bookmark-outline" size={60} color="#e2e8f0" />
+                <Text className="text-gray-500 text-lg mt-3">Henüz kaydedilen görsel yok</Text>
+                <Text className="text-gray-400 mt-2">Görselleri kaydetmek için ana sayfaya dönün</Text>
+              </View>
+            )}
+          </>
         )}
       </View>
 
@@ -101,8 +139,8 @@ export default function Saved() {
         <TouchableOpacity onPress={() => router.replace('/(dashboard)/saved')}>
           <Ionicons name="bookmark-outline" size={26} color="#e11d48" />
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => router.replace('/(dashboard)/profile')}>
-          <Ionicons name="person-outline" size={26} color="#6b7280" />
+        <TouchableOpacity onPress={() => router.push('/todo')}>
+          <Ionicons name="checkmark-circle-outline" size={26} color="#6b7280" />
         </TouchableOpacity>
       </View>
     </SafeAreaView>

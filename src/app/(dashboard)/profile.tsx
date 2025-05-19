@@ -109,6 +109,9 @@ export default function Profile() {
         <TouchableOpacity onPress={() => router.replace('/(dashboard)/profile')}>
           <Ionicons name="person-outline" size={26} color="#e11d48" />
         </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push('/todo')}>
+          <Ionicons name="checkmark-circle-outline" size={26} color="#6b7280" />
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
