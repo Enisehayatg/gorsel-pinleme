@@ -35,12 +35,12 @@ export default function Register() {
       setLoading(true);
       const res = await register({ name, email, password });
 
-      if (res.data?.status && res.data?.token) {
+      if (res.status && res.data?.token) {
         await AsyncStorage.setItem('accessToken', res.data.token);
         await AsyncStorage.setItem('accessUser', JSON.stringify(res.data.user));
         router.replace('/(dashboard)');
       } else {
-        Alert.alert('Kayıt Başarısız', res.data?.message || 'Bilgileri kontrol edin.');
+        Alert.alert('Kayıt Başarısız', res.message || 'Bilgileri kontrol edin.');
       }
     } catch (error) {
       console.error('Register error:', error);
@@ -92,6 +92,7 @@ export default function Register() {
               keyboardType="email-address"
               value={email}
               onChangeText={setEmail}
+              autoCapitalize="none"
             />
 
             <TextInput
@@ -129,4 +130,4 @@ export default function Register() {
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
   );
-}
+222}

@@ -17,6 +17,9 @@ import { getSavedPins, removePin, SavedPin } from '@/utils/savedStorage';
 const screenWidth = Dimensions.get('window').width;
 const CARD_WIDTH = screenWidth / 2 - 20;
 
+// Profil fotoğrafı için URL
+const PROFILE_IMAGE_URL = "https://i.pravatar.cc/150?img=10";
+
 export default function Saved() {
   const [loading, setLoading] = useState(true);
   const [pins, setPins] = useState<SavedPin[]>([]);
@@ -93,8 +96,18 @@ export default function Saved() {
   return (
     <SafeAreaView className="flex-1 mb-5 bg-white">
       {/* Header */}
-      <View className="px-4 py-4 border-b border-gray-200">
+      <View className="px-4 py-4 border-b border-gray-200 flex-row justify-between items-center">
         <Text className="text-2xl font-bold text-pink-600">📌 Kaydedilenler</Text>
+        <TouchableOpacity 
+          onPress={() => router.replace('/(dashboard)/profile')}
+          className="w-10 h-10 rounded-full overflow-hidden"
+        >
+          <Image 
+            source={{ uri: PROFILE_IMAGE_URL }} 
+            className="w-full h-full" 
+            resizeMode="cover"
+          />
+        </TouchableOpacity>
       </View>
 
       {/* İçerik */}
@@ -125,7 +138,7 @@ export default function Saved() {
         )}
       </View>
 
-      {/* Footer */}
+      {/* Alt Menü */}
       <View className="absolute bottom-0 left-0 right-0 flex-row justify-around items-center bg-white border-t border-gray-200 py-3">
         <TouchableOpacity onPress={() => router.push('/(dashboard)')}>
           <Ionicons name="home-outline" size={26} color="#6b7280" />

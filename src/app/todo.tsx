@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, Alert, ActivityIndicator, Animated, Image, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, Alert, ActivityIndicator, Animated, Image, StyleSheet, ScrollView, Modal, Dimensions } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Swipeable, GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -7,6 +7,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { TodoItem, getTodos, saveTodos } from '@/utils/todoStorage';
+
+const { width: screenWidth } = Dimensions.get('window');
+const IMAGE_HEIGHT = 160; // Sabit image yüksekliği
+
+// Profil fotoğrafı için URL
+const PROFILE_IMAGE_URL = "https://i.pravatar.cc/150?img=10";
 
 interface DayType {
   date: Date;
@@ -22,6 +28,14 @@ export default function TodoScreen() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const swipeableRefs = useRef<Swipeable[]>([]);
+  const [imageModalVisible, setImageModalVisible] = useState(false);
+  const [selectedTodoId, setSelectedTodoId] = useState<string | null>(null);
+  const bottomSheetAnimation = useRef(new Animated.Value(0)).current;
+  
+  // Düzenleme modu için
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState('');
   
   // Takvim için state'ler
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -112,26 +126,129 @@ export default function TodoScreen() {
     }
   };
 
+  // Görev düzenleme modunu başlat
+  const startEditing = (todo: TodoItem) => {
+    setIsEditing(true);
+    setEditingTodoId(todo.id);
+    setEditingText(todo.text);
+  };
+
+  // Görev düzenlemesini kaydet
+  const saveEditing = () => {
+    if (editingText.trim() === '') {
+      Alert.alert('Uyarı', 'Görev açıklaması boş olamaz.');
+      return;
+    }
+
+    const updatedTodos = todos.map((todo) =>
+      todo.id === editingTodoId ? { ...todo, text: editingText } : todo
+    );
+    
+    updateTodos(updatedTodos);
+    setIsEditing(false);
+    setEditingTodoId(null);
+    setEditingText('');
+  };
+
+  // Görev düzenleme modunu iptal et
+  const cancelEditing = () => {
+    setIsEditing(false);
+    setEditingTodoId(null);
+    setEditingText('');
+  };
+
+  // Show image selection modal
+  const showImageSelectionModal = (id: string) => {
+    setSelectedTodoId(id);
+    setImageModalVisible(true);
+    Animated.timing(bottomSheetAnimation, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true
+    }).start();
+  };
+
+  // Hide image selection modal
+  const hideImageSelectionModal = () => {
+    Animated.timing(bottomSheetAnimation, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: true
+    }).start(() => {
+      setImageModalVisible(false);
+      setSelectedTodoId(null);
+    });
+  };
+
   // Pick an image from the device's gallery
-  const pickImageForTodo = async (id: string) => {
+  const pickFromGallery = async () => {
+    if (!selectedTodoId) return;
+    
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.5,
+        aspect: [16, 9], // 16:9 aspect ratio for consistency
+        quality: 0.8,
       });
   
       if (!result.canceled) {
         // Görevi bulup image'ı güncelle
         const updatedTodos = todos.map((todo) =>
-          todo.id === id ? { ...todo, imageUri: result.assets[0].uri } : todo
+          todo.id === selectedTodoId ? { ...todo, imageUri: result.assets[0].uri } : todo
         );
         updateTodos(updatedTodos);
+        hideImageSelectionModal();
       }
     } catch (e) {
       Alert.alert('Hata', 'Görsel seçilirken bir hata oluştu.');
     }
+  };
+
+  // Take a photo with the camera
+  const takePhoto = async () => {
+    if (!selectedTodoId) return;
+    
+    try {
+      const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
+      
+      if (cameraPermission.granted) {
+        const result = await ImagePicker.launchCameraAsync({
+          allowsEditing: true,
+          aspect: [16, 9], // 16:9 aspect ratio for consistency
+          quality: 0.8,
+        });
+    
+        if (!result.canceled) {
+          // Görevi bulup image'ı güncelle
+          const updatedTodos = todos.map((todo) =>
+            todo.id === selectedTodoId ? { ...todo, imageUri: result.assets[0].uri } : todo
+          );
+          updateTodos(updatedTodos);
+          hideImageSelectionModal();
+        }
+      } else {
+        Alert.alert('İzin Gerekli', 'Kamera erişimi için izin gerekiyor.');
+      }
+    } catch (e) {
+      Alert.alert('Hata', 'Kamera kullanılırken bir hata oluştu.');
+    }
+  };
+
+  // Navigate to dashboard to select an image
+  const selectFromDashboard = () => {
+    if (!selectedTodoId) return;
+    
+    hideImageSelectionModal();
+    router.push({
+      pathname: '/(dashboard)',
+      params: { fromTodo: 'true', todoId: selectedTodoId }
+    });
+  };
+
+  // Pick an image for todo - shows modal now
+  const pickImageForTodo = (id: string) => {
+    showImageSelectionModal(id);
   };
 
   const addTodo = () => {
@@ -181,36 +298,52 @@ export default function TodoScreen() {
     });
   };
 
-  const SwipeButtons = ({id}: {id: string}) => (
-    <View style={{ flexDirection: 'row', width: 160 }}>
-      <TouchableOpacity
-        style={{
-          backgroundColor: '#60a5fa', // Mavi
-          justifyContent: 'center',
-          alignItems: 'center',
-          width: 80,
-          height: '100%'
-        }}
-        onPress={() => pickImageForTodo(id)}
-      >
-        <Ionicons name="image-outline" size={24} color="white" />
-        <Text style={{ color: 'white', fontWeight: 'bold', marginTop: 4, fontSize: 12 }}>GÖRSEL</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={{
-          backgroundColor: '#ef4444', // Kırmızı
-          justifyContent: 'center',
-          alignItems: 'center',
-          width: 80,
-          height: '100%'
-        }}
-        onPress={() => confirmDelete(id)}
-      >
-        <Ionicons name="trash-outline" size={24} color="white" />
-        <Text style={{ color: 'white', fontWeight: 'bold', marginTop: 4, fontSize: 12 }}>SİL</Text>
-      </TouchableOpacity>
-    </View>
-  );
+  const SwipeButtons = ({id}: {id: string}) => {
+    const todo = todos.find(t => t.id === id);
+    return (
+      <View style={{ flexDirection: 'row', width: 240 }}>
+        <TouchableOpacity
+          style={{
+            backgroundColor: '#10b981', // Yeşil
+            justifyContent: 'center',
+            alignItems: 'center',
+            width: 80,
+            height: '100%'
+          }}
+          onPress={() => todo && startEditing(todo)}
+        >
+          <Ionicons name="pencil" size={24} color="white" />
+          <Text style={{ color: 'white', fontWeight: 'bold', marginTop: 4, fontSize: 12 }}>DÜZENLE</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={{
+            backgroundColor: '#60a5fa', // Mavi
+            justifyContent: 'center',
+            alignItems: 'center',
+            width: 80,
+            height: '100%'
+          }}
+          onPress={() => pickImageForTodo(id)}
+        >
+          <Ionicons name="images-outline" size={24} color="white" />
+          <Text style={{ color: 'white', fontWeight: 'bold', marginTop: 4, fontSize: 12 }}>GÖRSEL</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={{
+            backgroundColor: '#ef4444', // Kırmızı
+            justifyContent: 'center',
+            alignItems: 'center',
+            width: 80,
+            height: '100%'
+          }}
+          onPress={() => confirmDelete(id)}
+        >
+          <Ionicons name="trash-outline" size={24} color="white" />
+          <Text style={{ color: 'white', fontWeight: 'bold', marginTop: 4, fontSize: 12 }}>SİL</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
   const renderRightActions = (id: string) => {
     return <SwipeButtons id={id} />;
@@ -258,7 +391,11 @@ export default function TodoScreen() {
               <View className="mt-2 rounded-lg overflow-hidden">
                 <Image
                   source={{ uri: item.imageUri }}
-                  className="w-full h-32 rounded-lg"
+                  style={{
+                    width: '100%', 
+                    height: IMAGE_HEIGHT,
+                    borderRadius: 8
+                  }}
                   resizeMode="cover"
                 />
               </View>
@@ -272,6 +409,20 @@ export default function TodoScreen() {
   return (
     <SafeAreaView className="flex-1 mb-5 bg-white">
       <StatusBar style="auto" />
+      
+      {/* Header with profile link in top right */}
+      <View className="flex-row justify-between items-center px-4 py-3 border-b border-gray-200">
+        <Text className="text-2xl font-bold text-pink-600">Görevler</Text>
+        <TouchableOpacity 
+          onPress={() => router.replace('/(dashboard)/profile')}
+          className="w-10 h-10 rounded-full bg-gray-100 justify-center items-center"
+        >
+          <Image
+            source={{ uri: PROFILE_IMAGE_URL }}
+            style={{ width: 36, height: 36, borderRadius: 18 }}
+          />
+        </TouchableOpacity>
+      </View>
       
       {/* Yatay çizgi halinde takvim */}
       <View style={styles.calendarContainer}>
@@ -371,7 +522,7 @@ export default function TodoScreen() {
             renderItem={renderTodoItem}
             keyExtractor={(item) => item.id}
             className="flex-1"
-            contentContainerStyle={{ paddingBottom: 80 }}
+            contentContainerClassName="pb-24"
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={
               <View className="justify-center items-center py-10">
@@ -384,21 +535,146 @@ export default function TodoScreen() {
         )}
       </View>
       
+      {/* Edit Task Modal */}
+      <Modal
+        transparent={true}
+        visible={isEditing}
+        animationType="fade"
+        onRequestClose={cancelEditing}
+      >
+        <View className="flex-1 bg-black/50 justify-center items-center p-5">
+          <View className="bg-white w-full rounded-xl p-5">
+            <Text className="text-lg font-bold text-gray-800 mb-3">Görevi Düzenle</Text>
+            
+            <TextInput
+              className="bg-gray-100 rounded-lg p-3 mb-4"
+              value={editingText}
+              onChangeText={setEditingText}
+              multiline
+            />
+            
+            <View className="flex-row justify-end">
+              <TouchableOpacity 
+                className="bg-gray-200 px-4 py-2 rounded-lg mr-2"
+                onPress={cancelEditing}
+              >
+                <Text className="font-medium">İptal</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                className="bg-green-500 px-4 py-2 rounded-lg"
+                onPress={saveEditing}
+              >
+                <Text className="font-medium text-white">Kaydet</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Image Selection Modal */}
+      <Modal
+        transparent={true}
+        visible={imageModalVisible}
+        animationType="none"
+        onRequestClose={hideImageSelectionModal}
+      >
+        <TouchableOpacity 
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}
+          activeOpacity={1} 
+          onPress={hideImageSelectionModal}
+        >
+          <Animated.View
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              backgroundColor: 'white',
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              padding: 20,
+              transform: [{
+                translateY: bottomSheetAnimation.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [300, 0]
+                })
+              }]
+            }}
+          >
+            <View className="items-center mb-6">
+              <View className="w-16 h-1 bg-gray-300 rounded-full mb-4" />
+              <Text className="text-xl font-bold text-gray-800">Görsel Ekle</Text>
+            </View>
+            
+            <TouchableOpacity 
+              className="flex-row items-center p-4 mb-3 bg-gray-100 rounded-xl"
+              onPress={pickFromGallery}
+            >
+              <View className="h-12 w-12 bg-blue-100 rounded-full items-center justify-center mr-4">
+                <Ionicons name="images-outline" size={24} color="#3b82f6" />
+              </View>
+              <View>
+                <Text className="text-lg font-medium text-gray-800">Galeriden Seç</Text>
+                <Text className="text-gray-500 text-sm">Cihazınızdaki görsellerden seçin</Text>
+              </View>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              className="flex-row items-center p-4 mb-3 bg-gray-100 rounded-xl"
+              onPress={takePhoto}
+            >
+              <View className="h-12 w-12 bg-green-100 rounded-full items-center justify-center mr-4">
+                <Ionicons name="camera-outline" size={24} color="#22c55e" />
+              </View>
+              <View>
+                <Text className="text-lg font-medium text-gray-800">Kamera ile Çek</Text>
+                <Text className="text-gray-500 text-sm">Yeni bir fotoğraf çekin</Text>
+              </View>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              className="flex-row items-center p-4 mb-6 bg-gray-100 rounded-xl"
+              onPress={selectFromDashboard}
+            >
+              <View className="h-12 w-12 bg-purple-100 rounded-full items-center justify-center mr-4">
+                <Ionicons name="grid-outline" size={24} color="#8b5cf6" />
+              </View>
+              <View>
+                <Text className="text-lg font-medium text-gray-800">Dashboard'dan Seç</Text>
+                <Text className="text-gray-500 text-sm">Uygulama içindeki görsellerden seçin</Text>
+              </View>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              className="w-full py-4 bg-pink-600 rounded-xl items-center"
+              onPress={hideImageSelectionModal}
+            >
+              <Text className="text-white font-bold text-lg">KAPAT</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </TouchableOpacity>
+      </Modal>
+
       {/* Alt Menü */}
       <View className="absolute bottom-0 left-0 right-0 flex-row justify-around items-center bg-white border-t border-gray-200 py-3">
         <TouchableOpacity onPress={() => router.push('/(dashboard)')}>
           <Ionicons name="home-outline" size={26} color="#6b7280" />
         </TouchableOpacity>
+
         <TouchableOpacity onPress={() => router.replace('/(dashboard)/search')}>
           <Ionicons name="search-outline" size={26} color="#6b7280" />
         </TouchableOpacity>
+
         <TouchableOpacity onPress={() => router.replace('/(dashboard)/add')}>
           <Ionicons name="add-circle-outline" size={32} color="#6b7280" />
         </TouchableOpacity>
+
         <TouchableOpacity onPress={() => router.replace('/(dashboard)/saved')}>
           <Ionicons name="bookmark-outline" size={26} color="#6b7280" />
         </TouchableOpacity>
-        <TouchableOpacity>
+
+        <TouchableOpacity onPress={() => router.push('/todo')}>
           <Ionicons name="checkmark-circle-outline" size={26} color="#e11d48" />
         </TouchableOpacity>
       </View>

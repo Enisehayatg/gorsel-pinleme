@@ -17,7 +17,7 @@ interface AuthResponse {
   message: string;
   code: number;
   status: boolean;
-  data: {
+  data?: {
     token: string;
     user: any;
   };
@@ -26,8 +26,8 @@ interface AuthResponse {
 export const useAuth = () => {
   const login = async (credentials: LoginCredentials): Promise<AuthResponse> => {
     try {
-      const response: any = await apiClient.post(API.ENDPOINTS.AUTH.LOGIN, credentials);
-      return response;
+      const response = await apiClient.post(API.ENDPOINTS.AUTH.LOGIN, credentials);
+      return response.data;
     } catch (error) {
       console.error('Login error:', error);
       throw error;
@@ -36,8 +36,8 @@ export const useAuth = () => {
 
   const register = async (credentials: RegisterCredentials): Promise<AuthResponse> => {
     try {
-      const response: any = await apiClient.post(API.ENDPOINTS.AUTH.REGISTER, credentials);
-      return response;
+      const response = await apiClient.post(API.ENDPOINTS.AUTH.REGISTER, credentials);
+      return response.data;
     } catch (error) {
       console.error('Register error:', error);
       throw error;

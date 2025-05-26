@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+// pin/[id].tsx - Pexels API'den veri alan Pin Detay Sayfası
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -10,50 +11,12 @@ import {
   FlatList,
   Dimensions,
   Share,
+  ActivityIndicator
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-const screenWidth = Dimensions.get('window').width;
-const CARD_WIDTH = screenWidth / 2 - 24;
-
-const pins = [
-  {
-    id: '1',
-    category: 'Sanat',
-    title: 'Modern Tablo',
-    image: 'https://images.unsplash.com/photo-1581093588401-02d986a04979?auto=format&fit=crop&w=800&q=80',
-    description: 'Renkli modern sanat tablosu, soyut bir anlatım tarzıyla oluşturulmuştur.',
-  },
-  {
-    id: '2',
-    category: 'Doğa',
-    title: 'Orman Yolu',
-    image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80',
-    description: 'Sabah sisinde bir orman yolu, huzur verici manzara.',
-  },
-  {
-    id: '3',
-    category: 'Yemek',
-    title: 'Spagetti Tabağı',
-    image: 'https://images.unsplash.com/photo-1604908178060-5f320116553d?auto=format&fit=crop&w=800&q=80',
-    description: 'Lezzetli domates soslu spagetti tabağı.',
-  },
-  {
-    id: '4',
-    category: 'Dekorasyon',
-    title: 'Salon Dizaynı',
-    image: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80',
-    description: 'Minimal ve şık salon dekorasyon fikri.',
-  },
-  {
-    id: '5',
-    category: 'Moda',
-    title: 'Sokak Stili',
-    image: 'https://images.unsplash.com/photo-1521335629791-ce4aec67dd47?auto=format&fit=crop&w=800&q=80',
-    description: 'Günlük kombin ve rahat sokak stilinden ilham.',
-  },
-];
+const API_KEY = 'jeJCgeHoNppRXxAVPHNCrwUkN5KdN82LwhA8rI8MqhSzB8H1840YqZ90';
 
 export default function PinDetail() {
   const { id } = useLocalSearchParams();
@@ -61,9 +24,34 @@ export default function PinDetail() {
   const [liked, setLiked] = useState(false);
   const [comment, setComment] = useState('');
   const [comments, setComments] = useState<string[]>([]);
+  const [pin, setPin] = useState<any>(null);
+  const [recommended, setRecommended] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const pin = pins.find((p) => p.id === id);
-  const recommendedPins = pins.filter((p) => p.id !== id && p.category === pin?.category);
+  useEffect(() => {
+    if (id) fetchPinById(id);
+  }, [id]);
+
+  const fetchPinById = async (pinId: string | string[]) => {
+    try {
+      setLoading(true);
+      const response = await fetch(`https://api.pexels.com/v1/curated?per_page=80`, {
+        headers: {
+          Authorization: API_KEY
+        }
+      });
+      const data = await response.json();
+      const found = data.photos.find((p: any) => String(p.id) === String(pinId));
+      setPin(found);
+
+      const related = data.photos.filter((p: any) => p.id !== found?.id).slice(0, 10);
+      setRecommended(related);
+    } catch (e) {
+      console.error('Hata:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleCommentSubmit = () => {
     if (!comment.trim()) return;
@@ -74,12 +62,20 @@ export default function PinDetail() {
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `Bak bu pini çok beğendim! 📌\n\n${pin?.title} (${pin?.category})\n${pin?.image}`,
+        message: `Bak bu pini çok beğendim! \n\n${pin?.alt} \n${pin?.url}`,
       });
     } catch (error) {
-      console.error('Share error:', error);
+      console.error('Paylaşım hatası:', error);
     }
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView className="flex-1 justify-center items-center bg-white">
+        <ActivityIndicator size="large" color="#e11d48" />
+      </SafeAreaView>
+    );
+  }
 
   if (!pin) {
     return (
@@ -93,19 +89,15 @@ export default function PinDetail() {
     <SafeAreaView className="flex-1 bg-white">
       <ScrollView className="flex-1">
         <Image
-          source={{ uri: pin.image }}
+          source={{ uri: pin.src.original }}
           className="w-full h-96"
           resizeMode="cover"
         />
 
         <View className="px-5 py-4">
-          <Text className="text-xl font-bold text-gray-800 mb-1">{pin.title}</Text>
-          <Text className="text-sm text-gray-400 mb-2">Kategori: {pin.category}</Text>
-          <Text className="text-base text-gray-700 leading-relaxed">
-            {pin.description}
-          </Text>
+          <Text className="text-xl font-bold text-gray-800 mb-1">{pin.alt || 'Görsel'}</Text>
+          <Text className="text-sm text-gray-400 mb-2">Fotoğraflayan: {pin.photographer}</Text>
 
-          {/* Beğen & Paylaş Butonları */}
           <View className="mt-4 flex-row gap-4">
             <TouchableOpacity
               onPress={() => setLiked(!liked)}
@@ -125,7 +117,6 @@ export default function PinDetail() {
           </View>
         </View>
 
-        {/* Yorumlar */}
         <View className="px-5 mt-4">
           <Text className="text-lg font-semibold text-gray-800 mb-3">Yorumlar</Text>
           {comments.length === 0 ? (
@@ -151,13 +142,12 @@ export default function PinDetail() {
           </View>
         </View>
 
-        {/* Önerilenler */}
         <View className="px-5 mt-6">
           <Text className="text-lg font-semibold text-gray-800 mb-3">Benzer Pinler</Text>
           <FlatList
-            data={recommendedPins}
+            data={recommended}
             horizontal
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => String(item.id)}
             showsHorizontalScrollIndicator={false}
             renderItem={({ item }) => (
               <TouchableOpacity
@@ -166,11 +156,11 @@ export default function PinDetail() {
                 style={{ width: 160 }}
               >
                 <Image
-                  source={{ uri: item.image }}
+                  source={{ uri: item.src.medium }}
                   className="w-full h-36 rounded-xl mb-2"
                   resizeMode="cover"
                 />
-                <Text className="text-sm text-gray-600">{item.title}</Text>
+                <Text className="text-sm text-gray-600">{item.alt || 'Görsel'}</Text>
               </TouchableOpacity>
             )}
           />

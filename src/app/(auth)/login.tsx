@@ -18,33 +18,39 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('enisehayat0@gmail.com');
+  const [password, setPassword] = useState('12345678');
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
+const handleLogin = async () => {
+  if (email !== 'enisehayat0@gmail.com' || password !== '12345678') {
+    Alert.alert('Hatalı Giriş', 'E-posta veya şifre yanlış.');
+    return;
+  }
 
-  const handleLogin = async () => {
-    try {
-      setLoading(true);
-      router.replace('/(dashboard)');
+  try {
+    setLoading(true);
 
-      const res = await login({ email, password });
+    const staticUser = {
+      id: 99,
+      name: 'Enise Hayat',
+      email: 'enisehayat0@gmail.com',
+    };
+    const staticToken = 'static-token-enise-123';
 
-      if (res.status && res.data?.token) {
-        await AsyncStorage.setItem('accessToken', res.data.token);
-        await AsyncStorage.setItem('accessUser', JSON.stringify(res.data.user));
-        router.replace('/(dashboard)');
-      } else {
-        Alert.alert('Giriş Başarısız', res.message || 'Geçersiz bilgiler');
-      }
-    } catch (error) {
-      console.error('Login error:', error);
-      Alert.alert('Hata', 'Bir sorun oluştu. Tekrar deneyin.');
-    } finally {
-      setLoading(false);
-    }
-  };
+    await AsyncStorage.setItem('accessToken', staticToken);
+    await AsyncStorage.setItem('accessUser', JSON.stringify(staticUser));
+
+    router.replace('/(dashboard)');
+  } catch (error) {
+    console.error('Login error:', error);
+    Alert.alert('Hata', 'Giriş sırasında bir hata oluştu.');
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <KeyboardAvoidingView
@@ -80,6 +86,7 @@ export default function Login() {
               keyboardType="email-address"
               value={email}
               onChangeText={setEmail}
+              autoCapitalize="none"
             />
 
             <TextInput

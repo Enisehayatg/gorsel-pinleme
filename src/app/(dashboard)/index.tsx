@@ -13,114 +13,119 @@ import {
   Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { addImageToTodo } from '@/utils/todoStorage';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { addImageToTodo, getTodos, saveTodos } from '@/utils/todoStorage';
 import { savePin, isPinSaved, removePin } from '@/utils/savedStorage';
 
 const screenWidth = Dimensions.get('window').width;
 const CARD_WIDTH = screenWidth / 2 - 20;
+const API_KEY = 'jeJCgeHoNppRXxAVPHNCrwUkN5KdN82LwhA8rI8MqhSzB8H1840YqZ90';
 
-const fakePins = [
-  { id: '1', title: 'Doğa', image: 'https://picsum.photos/300/420' },
-  { id: '2', title: 'Minimal', image: 'https://picsum.photos/300/380' },
-  { id: '3', title: 'Sanat', image: 'https://picsum.photos/300/500' },
-  { id: '4', title: 'İlham', image: 'https://picsum.photos/300/460' },
-  { id: '5', title: 'Dekor', image: 'https://picsum.photos/300/340' },
-  { id: '6', title: 'Lezzet', image: 'https://picsum.photos/300/470' },
-];
+const PROFILE_IMAGE_URL = "https://i.pravatar.cc/150?img=10";
 
 export default function Dashboard() {
   const router = useRouter();
+  const { fromTodo, todoId } = useLocalSearchParams<{ fromTodo: string, todoId: string }>();
   const [pins, setPins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [pressedCardId, setPressedCardId] = useState<string | null>(null);
   const [savedPinIds, setSavedPinIds] = useState<string[]>([]);
 
-  // Load pins and check which ones are saved
   useEffect(() => {
-    const loadData = async () => {
-      setTimeout(() => {
-        setPins(fakePins);
-        setLoading(false);
-      }, 1000);
-      
-      // Check which pins are saved
-      loadSavedPinIds();
-    };
-    
-    loadData();
+    fetchPins(search || 'nature');
   }, []);
 
-  const loadSavedPinIds = useCallback(async () => {
+  const fetchPins = async (query: string) => {
+    try {
+      const response = await fetch(`https://api.pexels.com/v1/search?query=${query}&per_page=30`, {
+        headers: {
+          Authorization: API_KEY,
+        },
+      });
+
+      const data = await response.json();
+
+      const mapped = data.photos.map((item: any) => ({
+        id: String(item.id),
+        title: item.alt || 'Görsel',
+        image: item.src?.medium || item.src?.original,
+      }));
+
+      setPins(mapped);
+      setLoading(false);
+      loadSavedPinIds(mapped);
+    } catch (e) {
+      console.error('Pexels API error:', e);
+      setLoading(false);
+    }
+  };
+
+  const loadSavedPinIds = useCallback(async (pinList: any[]) => {
     try {
       const savedIds: string[] = [];
-      
-      for (const pin of fakePins) {
+
+      for (const pin of pinList) {
         const isSaved = await isPinSaved(pin.id);
-        if (isSaved) {
-          savedIds.push(pin.id);
-        }
+        if (isSaved) savedIds.push(pin.id);
       }
-      
+
       setSavedPinIds(savedIds);
     } catch (e) {
-      console.error("Error checking saved pins:", e);
+      console.error('Kayıtlı görseller kontrol edilirken hata:', e);
     }
   }, []);
 
   const handleAddToTodo = async (image: string, title: string) => {
     try {
-      await addImageToTodo(image, title);
-      Alert.alert('Başarılı', 'Görsel, görev listenize eklendi.');
-      // Görseli ekledikten sonra todo sayfasına yönlendirme
-      router.push('/todo');
+      if (fromTodo === 'true' && todoId) {
+        const todos = await getTodos();
+        const updated = todos.map((todo) =>
+          todo.id === todoId ? { ...todo, imageUri: image } : todo
+        );
+        await saveTodos(updated);
+        Alert.alert('Başarılı', 'Görsel, göreve eklendi.');
+        router.push('/todo');
+      } else {
+        await addImageToTodo(image, title);
+        Alert.alert('Başarılı', 'Görsel eklendi.');
+        router.push('/todo');
+      }
     } catch (e) {
-      Alert.alert('Hata', 'Görseli eklerken bir hata oluştu.');
+      Alert.alert('Hata', 'Görsel eklenirken hata oluştu.');
     }
   };
 
   const handleSavePin = async (item: any) => {
     try {
       const isSaved = savedPinIds.includes(item.id);
-      
+
       if (isSaved) {
-        // Remove from saved
         const removed = await removePin(item.id);
         if (removed) {
           setSavedPinIds(savedPinIds.filter(id => id !== item.id));
-          Alert.alert('Bilgi', 'Görsel kaydedilenlerden çıkarıldı.');
+          Alert.alert('Bilgi', 'Görsel kayıttan silindi.');
         }
       } else {
-        // Add to saved
-        const added = await savePin({
-          id: item.id,
-          title: item.title,
-          image: item.image
-        });
-        
+        const added = await savePin(item);
         if (added) {
           setSavedPinIds([...savedPinIds, item.id]);
           Alert.alert('Başarılı', 'Görsel kaydedildi!');
         }
       }
     } catch (e) {
-      Alert.alert('Hata', 'İşlem sırasında bir hata oluştu.');
+      Alert.alert('Hata', 'Kayıt işlemi başarısız.');
     }
   };
 
   const toggleCardPress = (id: string) => {
-    if (pressedCardId === id) {
-      setPressedCardId(null);
-    } else {
-      setPressedCardId(id);
-    }
+    setPressedCardId(prev => (prev === id ? null : id));
   };
 
   const renderItem = ({ item, index }: any) => {
     const isPressed = pressedCardId === item.id;
     const isSaved = savedPinIds.includes(item.id);
-    
+
     return (
       <View
         style={{
@@ -133,7 +138,7 @@ export default function Dashboard() {
           elevation: 2,
         }}
       >
-        <Pressable 
+        <Pressable
           onPress={() => toggleCardPress(item.id)}
           onLongPress={() => router.push(`/pin/${item.id}`)}
           style={{ position: 'relative' }}
@@ -148,26 +153,26 @@ export default function Dashboard() {
             }}
             resizeMode="cover"
           />
-          
+
           {isPressed && (
             <View className="absolute inset-0 bg-black/50 flex justify-center items-center">
               <View className="flex-row justify-around items-center w-full px-4">
                 <TouchableOpacity className="w-12 h-12 bg-white rounded-full items-center justify-center">
                   <Ionicons name="heart-outline" size={24} color="#6b7280" />
                 </TouchableOpacity>
-                
-                <TouchableOpacity 
+
+                <TouchableOpacity
                   className="w-12 h-12 bg-white rounded-full items-center justify-center"
                   onPress={() => handleSavePin(item)}
                 >
-                  <Ionicons 
-                    name={isSaved ? "bookmark" : "bookmark-outline"} 
-                    size={24} 
-                    color={isSaved ? "#e11d48" : "#6b7280"} 
+                  <Ionicons
+                    name={isSaved ? "bookmark" : "bookmark-outline"}
+                    size={24}
+                    color={isSaved ? "#e11d48" : "#6b7280"}
                   />
                 </TouchableOpacity>
-                
-                <TouchableOpacity 
+
+                <TouchableOpacity
                   className="w-12 h-12 bg-white rounded-full items-center justify-center"
                   onPress={() => handleAddToTodo(item.image, item.title)}
                 >
@@ -177,16 +182,27 @@ export default function Dashboard() {
             </View>
           )}
         </Pressable>
-        
-        <View style={{ padding: 10 }}>
-          <Text style={{ fontWeight: '600', color: '#333' }}>{item.title}</Text>
-        </View>
+
       </View>
     );
   };
 
   return (
     <SafeAreaView className="flex-1 mb-5 bg-white">
+      <View className="flex-row justify-between items-center px-4 py-3 border-b border-gray-200">
+        <Text className="text-2xl font-bold text-pink-600">Dashboard</Text>
+        <TouchableOpacity
+          onPress={() => router.replace('/(dashboard)/profile')}
+          className="w-10 h-10 rounded-full overflow-hidden"
+        >
+          <Image
+            source={{ uri: PROFILE_IMAGE_URL }}
+            className="w-full h-full"
+            resizeMode="cover"
+          />
+        </TouchableOpacity>
+      </View>
+
       {loading ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#e11d48" />
@@ -198,24 +214,25 @@ export default function Dashboard() {
           keyExtractor={(item) => item.id}
           numColumns={2}
           ListHeaderComponent={
-            <View className="mx-4 mt-3 mb-2">
-              <View className="flex-row items-center">
+            <View>
+              {fromTodo === 'true' && (
+                <View className="mx-4 my-2 p-3 bg-blue-100 rounded-lg">
+                  <Text className="text-blue-700 text-center font-medium">
+                    Göreviniz için bir görsel seçin. Görsele dokunup ✓ simgesine tıklayın.
+                  </Text>
+                </View>
+              )}
+              <View className="mx-4 mt-3 mb-2">
                 <TextInput
                   placeholder="Ara..."
                   placeholderTextColor="#A1A1AA"
                   value={search}
-                  onChangeText={setSearch}
-                  className="bg-gray-100 px-4 py-2 rounded-full text-sm text-gray-800 flex-1 mr-3"
+                  onChangeText={(text) => {
+                    setSearch(text);
+                    fetchPins(text);
+                  }}
+                  className="bg-gray-100 px-4 py-2 rounded-full text-sm text-gray-800"
                 />
-                <TouchableOpacity 
-                  onPress={() => router.replace('/(dashboard)/profile')}
-                  className="w-10 h-10 rounded-full justify-center items-center border border-gray-200"
-                >
-                  <Image
-                    source={{ uri: 'https://i.pravatar.cc/150?img=10' }}
-                    className="w-9 h-9 rounded-full"
-                  />
-                </TouchableOpacity>
               </View>
             </View>
           }
@@ -224,22 +241,21 @@ export default function Dashboard() {
         />
       )}
 
-      {/* Alt Menü */}
       <View className="absolute bottom-0 left-0 right-0 flex-row justify-around items-center bg-white border-t border-gray-200 py-3">
         <TouchableOpacity onPress={() => router.push('/(dashboard)')}>
-        <Ionicons name="home-outline" size={26} color="#e11d48" />
+          <Ionicons name="home-outline" size={26} color="#e11d48" />
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => router.replace('/(dashboard)/search')}>
-        <Ionicons name="search-outline" size={26} color="#6b7280" />
+          <Ionicons name="search-outline" size={26} color="#6b7280" />
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => router.replace('/(dashboard)/add')}>
-        <Ionicons name="add-circle-outline" size={32} color="#6b7280" />
+          <Ionicons name="add-circle-outline" size={32} color="#6b7280" />
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => router.replace('/(dashboard)/saved')}>
-        <Ionicons name="bookmark-outline" size={26} color="#6b7280" />
+          <Ionicons name="bookmark-outline" size={26} color="#6b7280" />
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => router.push('/todo')}>

@@ -92,7 +92,7 @@ export default function Profile() {
         )}
       </View>
 
-      {/* Footer */}
+      {/* Alt Menü */}
       <View className="absolute bottom-0 left-0 right-0 flex-row justify-around items-center bg-white border-t border-gray-200 py-3">
         <TouchableOpacity onPress={() => router.push('/(dashboard)')}>
           <Ionicons name="home-outline" size={26} color="#6b7280" />
