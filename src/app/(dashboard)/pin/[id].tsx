@@ -35,17 +35,22 @@ export default function PinDetail() {
   const fetchPinById = async (pinId: string | string[]) => {
     try {
       setLoading(true);
-      const response = await fetch(`https://api.pexels.com/v1/curated?per_page=80`, {
-        headers: {
-          Authorization: API_KEY
-        }
+      const searchResponse = await fetch(`https://api.pexels.com/v1/photos/${pinId}`, {
+        headers: { Authorization: API_KEY },
       });
-      const data = await response.json();
-      const found = data.photos.find((p: any) => String(p.id) === String(pinId));
-      setPin(found);
 
-      const related = data.photos.filter((p: any) => p.id !== found?.id).slice(0, 10);
-      setRecommended(related);
+      if (!searchResponse.ok) {
+        throw new Error('Pin bulunamadı');
+      }
+
+      const pinData = await searchResponse.json();
+      setPin(pinData);
+
+      const recommendedRes = await fetch('https://api.pexels.com/v1/curated?per_page=10', {
+        headers: { Authorization: API_KEY },
+      });
+      const recommendedData = await recommendedRes.json();
+      setRecommended(recommendedData.photos);
     } catch (e) {
       console.error('Hata:', e);
     } finally {
@@ -88,6 +93,14 @@ export default function PinDetail() {
   return (
     <SafeAreaView className="flex-1 bg-white">
       <ScrollView className="flex-1">
+        <TouchableOpacity
+          onPress={() => router.back()}
+          className="absolute top-12 left-4 z-10 bg-white/80 px-3 py-2 rounded-full flex-row items-center"
+        >
+          <Ionicons name="arrow-back" size={20} color="#333" />
+          <Text className="ml-1 text-gray-800">Geri</Text>
+        </TouchableOpacity>
+
         <Image
           source={{ uri: pin.src.original }}
           className="w-full h-96"

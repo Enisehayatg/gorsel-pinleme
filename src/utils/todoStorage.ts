@@ -5,7 +5,7 @@ export interface TodoItem {
   text: string;
   completed: boolean;
   imageUri?: string;
-  date?: string; // ISO-8601 format tarih string'i olarak saklayacağız
+  date?: string; 
 }
 
 const STORAGE_KEY = '@todo_items';
@@ -39,7 +39,7 @@ export const addImageToTodo = async (imageUri: string, title?: string): Promise<
       text: title || 'Görev',
       completed: false,
       imageUri,
-      date: new Date().toISOString(), // Bugünün tarihini ekle
+      date: new Date().toISOString(), 
     };
     todos.push(newTodo);
     await saveTodos(todos);

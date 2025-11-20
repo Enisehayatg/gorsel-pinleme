@@ -11,15 +11,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const screenWidth = Dimensions.get('window').width;
 const CARD_WIDTH = screenWidth / 2 - 20;
-
-const userPins = [
-  { id: '201', title: 'Benim Tasarımım', image: 'https://picsum.photos/300/480' },
-  { id: '202', title: 'İlham', image: 'https://picsum.photos/300/420' },
-  { id: '203', title: 'Çalışma Alanım', image: 'https://picsum.photos/300/450' },
-];
 
 export default function Profile() {
   const [pins, setPins] = useState([]);
@@ -27,11 +22,22 @@ export default function Profile() {
   const router = useRouter();
 
   useEffect(() => {
-    setTimeout(() => {
-      setPins(userPins);
-      setLoading(false);
-    }, 800);
+    loadLikedPins();
   }, []);
+
+  const loadLikedPins = async () => {
+    try {
+      const storedPinsData = await AsyncStorage.getItem('likedPinsData');
+      if (storedPinsData) {
+        const parsedPins = JSON.parse(storedPinsData);
+        setPins(Object.values(parsedPins));
+      }
+      setLoading(false);
+    } catch (error) {
+      console.error('Error loading liked pins:', error);
+      setLoading(false);
+    }
+  };
 
   const renderItem = ({ item, index }: any) => (
     <TouchableOpacity
@@ -71,14 +77,22 @@ export default function Profile() {
           className="w-20 h-20 rounded-full mb-2"
         />
         <Text className="text-xl font-bold text-gray-800">Enise</Text>
-        <Text className="text-sm text-gray-500">Görsel tutkunu • 3 Pin</Text>
+        <Text className="text-sm text-gray-500">Görsel tutkunu • {pins.length} Pin</Text>
       </View>
 
       {/* İçerik */}
       <View className="flex-1 px-3 mt-2">
+        <Text className="text-center text-gray-500 mb-4">Beğenilen Pinler</Text>
+
         {loading ? (
           <View className="flex-1 justify-center items-center">
             <ActivityIndicator size="large" color="#e11d48" />
+          </View>
+        ) : pins.length === 0 ? (
+          <View className="flex-1 justify-center items-center">
+            <Text className="text-gray-500 text-center">
+              Henüz beğenilen pin bulunmuyor.{'\n'}Keşfet sayfasından pinleri beğenebilirsiniz.
+            </Text>
           </View>
         ) : (
           <FlatList

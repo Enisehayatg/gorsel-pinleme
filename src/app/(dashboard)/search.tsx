@@ -17,6 +17,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const screenWidth = Dimensions.get('window').width;
 const CARD_WIDTH = screenWidth / 2 - 24;
@@ -55,12 +56,57 @@ export default function Search() {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [pins, setPins] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [likedPins, setLikedPins] = useState<string[]>([]);
   const headerAnimation = useRef(new Animated.Value(0)).current;
   const blinkAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     fetchPins(query);
+    loadLikedPins();
   }, [query]);
+
+  const loadLikedPins = async () => {
+    try {
+      const storedLikedPins = await AsyncStorage.getItem('likedPins');
+      if (storedLikedPins) {
+        setLikedPins(JSON.parse(storedLikedPins));
+      }
+    } catch (error) {
+      console.error('Error loading liked pins:', error);
+    }
+  };
+
+  const handleLike = async (pin: any) => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      const newLikedPins = [...likedPins];
+      const pinIndex = newLikedPins.indexOf(pin.id);
+      
+      if (pinIndex === -1) {
+        // Pin'i beğen
+        newLikedPins.push(pin.id);
+        // Pin'in tüm bilgilerini sakla
+        const storedPins = await AsyncStorage.getItem('likedPinsData') || '{}';
+        const parsedPins = JSON.parse(storedPins);
+        parsedPins[pin.id] = pin;
+        await AsyncStorage.setItem('likedPinsData', JSON.stringify(parsedPins));
+      } else {
+        // Beğeniyi kaldır
+        newLikedPins.splice(pinIndex, 1);
+        // Pin bilgilerini kaldır
+        const storedPins = await AsyncStorage.getItem('likedPinsData') || '{}';
+        const parsedPins = JSON.parse(storedPins);
+        delete parsedPins[pin.id];
+        await AsyncStorage.setItem('likedPinsData', JSON.stringify(parsedPins));
+      }
+      
+      await AsyncStorage.setItem('likedPins', JSON.stringify(newLikedPins));
+      setLikedPins(newLikedPins);
+    } catch (error) {
+      console.error('Error handling like:', error);
+      Alert.alert('Hata', 'Beğeni işlemi sırasında bir hata oluştu.');
+    }
+  };
 
   const fetchPins = async (q: string) => {
     try {
@@ -210,6 +256,23 @@ export default function Search() {
               }}
               resizeMode="cover"
             />
+            <TouchableOpacity
+              onPress={() => handleLike(item)}
+              style={{
+                position: 'absolute',
+                right: 8,
+                top: 8,
+                backgroundColor: 'rgba(255,255,255,0.8)',
+                borderRadius: 20,
+                padding: 8,
+              }}
+            >
+              <Ionicons
+                name={likedPins.includes(item.id) ? "heart" : "heart-outline"}
+                size={24}
+                color={likedPins.includes(item.id) ? COLORS.primary : "#000"}
+              />
+            </TouchableOpacity>
           </TouchableOpacity>
         )}
         ListEmptyComponent={

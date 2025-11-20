@@ -4,6 +4,8 @@ export interface SavedPin {
   id: string;
   title: string;
   image: string;
+  isUploaded?: boolean;
+  category?: string;
 }
 
 const SAVED_PINS_KEY = '@saved_pins';
